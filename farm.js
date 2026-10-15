@@ -1,87 +1,238 @@
 (function () {
     'use strict';
 
-    // Prevent duplicate execution on the same page.
-    if (window.__farmAutoRunning) return;
-    window.__farmAutoRunning = true;
+    // ============================================================
+    // CONFIGURATION
+    // ============================================================
 
     var ATTACK_DELAY_MS = 700;
     var CONFIRM_DELAY_MS = 700;
+
+    // true  = restart from coordinate 1 when list finishes
+    // false = stop when list finishes
     var RESTART_WHEN_FINISHED = false;
 
-    // Set this to "0" in localStorage to stop automatic sending.
-    if (localStorage.getItem('farmRunning') === '0') return;
 
-    // First run: enable automation automatically.
-    if (localStorage.getItem('farmRunning') === null) {
-        localStorage.setItem('farmRunning', '1');
-    }
-
-    // Convenience helpers for browser console.
-    window.farmStop = function () {
-        localStorage.setItem('farmRunning', '0');
-        console.log('Farm automation stopped.');
-    };
+    // ============================================================
+    // GLOBAL CONTROLS
+    // These MUST be defined before checking farmRunning.
+    // ============================================================
 
     window.farmStart = function () {
         localStorage.setItem('farmRunning', '1');
+
+        // Clear same-page execution protection.
+        window.__farmAutoRunning = false;
+
         console.log(
-            'Farm automation enabled. Reload the rally point to continue.'
+            '[Farm] Started. Reloading page...'
+        );
+
+        location.reload();
+    };
+
+
+    window.farmStop = function () {
+        localStorage.setItem('farmRunning', '0');
+
+        window.__farmAutoRunning = false;
+
+        console.log(
+            '[Farm] Stopped.'
         );
     };
+
 
     window.farmReset = function () {
         localStorage.setItem('farmIndex', '0');
-        console.log('Farm index reset to 0.');
+
+        console.log(
+            '[Farm] Coordinate index reset to 0.'
+        );
     };
+
+
+    window.farmRestart = function () {
+        localStorage.setItem('farmRunning', '1');
+        localStorage.setItem('farmIndex', '0');
+
+        window.__farmAutoRunning = false;
+
+        console.log(
+            '[Farm] Restarting from coordinate 1...'
+        );
+
+        location.reload();
+    };
+
+
+    window.farmStatus = function () {
+        var running =
+            localStorage.getItem('farmRunning');
+
+        var index =
+            parseInt(
+                localStorage.getItem('farmIndex') || '0',
+                10
+            );
+
+        console.log(
+            '[Farm Status]',
+            {
+                running: running === '1',
+                farmRunning: running,
+                index: index
+            }
+        );
+
+        return {
+            running: running === '1',
+            farmRunning: running,
+            index: index
+        };
+    };
+
+
+    // ============================================================
+    // STOP CHECK
+    // ============================================================
+
+    if (
+        localStorage.getItem('farmRunning') === '0'
+    ) {
+        console.log(
+            '[Farm] Automation is stopped.'
+        );
+
+        console.log(
+            '[Farm] Run window.farmStart() to continue.'
+        );
+
+        return;
+    }
+
+
+    // ============================================================
+    // FIRST RUN
+    // ============================================================
+
+    if (
+        localStorage.getItem('farmRunning') === null
+    ) {
+        localStorage.setItem(
+            'farmRunning',
+            '1'
+        );
+    }
+
+
+    // ============================================================
+    // PREVENT DUPLICATE EXECUTION
+    // ============================================================
+
+    if (window.__farmAutoRunning) {
+        console.log(
+            '[Farm] Script already executed on this page.'
+        );
+
+        return;
+    }
+
+    window.__farmAutoRunning = true;
+
+
+    // ============================================================
+    // DOCUMENT
+    // ============================================================
 
     var d = document;
 
-    if (window.main && window.main.document) {
+    if (
+        window.main &&
+        window.main.document
+    ) {
         d = window.main.document;
     }
 
-    var u = d.URL || location.href;
-    var b;
+    var u =
+        d.URL ||
+        window.location.href;
 
-    // ------------------------------------------------------------
-    // CONFIRM ATTACK
-    // ------------------------------------------------------------
 
-    if (u.indexOf('try=confirm') > -1) {
+    // ============================================================
+    // CONFIRMATION PAGE
+    // ============================================================
 
-        b = d.querySelector(
-            '#troop_confirm_submit,' +
-            '#troop_confirm_go,' +
-            'input[name=submit_confirm]'
-        );
+    if (
+        u.indexOf('try=confirm') > -1
+    ) {
 
-        if (b) {
-            setTimeout(function () {
+        var confirmButton =
+            d.querySelector(
+                '#troop_confirm_submit,' +
+                '#troop_confirm_go,' +
+                'input[name=submit_confirm]'
+            );
 
-                if (
-                    localStorage.getItem('farmRunning') !== '0'
-                ) {
-                    b.click();
-                }
+        if (!confirmButton) {
+            console.error(
+                '[Farm] Confirmation button not found.'
+            );
 
-            }, CONFIRM_DELAY_MS);
+            return;
         }
 
+        console.log(
+            '[Farm] Confirmation page detected.'
+        );
+
+        setTimeout(
+            function () {
+
+                if (
+                    localStorage.getItem(
+                        'farmRunning'
+                    ) === '0'
+                ) {
+                    console.log(
+                        '[Farm] Confirmation cancelled because farming was stopped.'
+                    );
+
+                    return;
+                }
+
+                console.log(
+                    '[Farm] Confirming command...'
+                );
+
+                confirmButton.click();
+
+            },
+            CONFIRM_DELAY_MS
+        );
+
         return;
     }
 
-    // ------------------------------------------------------------
-    // ONLY OPERATE FROM RALLY POINT
-    // ------------------------------------------------------------
 
-    if (u.indexOf('screen=place') === -1) {
+    // ============================================================
+    // ONLY RUN FARMING FROM RALLY POINT
+    // ============================================================
+
+    if (
+        u.indexOf('screen=place') === -1
+    ) {
+        console.log(
+            '[Farm] Waiting for rally point.'
+        );
+
         return;
     }
 
-    // ------------------------------------------------------------
-    // FARM COORDINATES
-    // ------------------------------------------------------------
+
+    // ============================================================
+    // COORDINATES
+    // ============================================================
 
     var coords = `
 496|570 482|569 503|574 497|575 501|578 465|571 468|572 470|573 462|571 458|570 468|574 463|571 461|571 474|580 470|577 474|581 465|578 496|586
@@ -205,73 +356,21 @@
 445|653 472|665 457|661 446|656 418|640 519|668 520|666 494|667 542|661 505|668 413|644 496|669 541|665 429|650 486|668
     `;
 
-    var l = coords
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
 
-    // ------------------------------------------------------------
-    // CHECK LIST
-    // ------------------------------------------------------------
+    // ============================================================
+    // BUILD COORDINATE LIST
+    // ============================================================
 
-    if (!l.length) {
-        alert('No coordinates available.');
-        localStorage.setItem('farmRunning', '0');
-        return;
-    }
+    var list =
+        coords
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
 
-    var i = parseInt(
-        localStorage.getItem('farmIndex') || '0',
-        10
-    );
 
-    if (!Number.isFinite(i) || i < 0) {
-        i = 0;
-    }
-
-    // ------------------------------------------------------------
-    // LIST FINISHED
-    // ------------------------------------------------------------
-
-    if (i >= l.length) {
-
-        if (RESTART_WHEN_FINISHED) {
-
-            i = 0;
-
-            localStorage.setItem(
-                'farmIndex',
-                '0'
-            );
-
-        } else {
-
-            localStorage.setItem(
-                'farmRunning',
-                '0'
-            );
-
-            alert(
-                'Farm list finished. Automation stopped.'
-            );
-
-            return;
-        }
-    }
-
-    // ------------------------------------------------------------
-    // GET NEXT COORDINATE
-    // ------------------------------------------------------------
-
-    var c = l[i].split('|');
-
-    if (c.length !== 2) {
-
+    if (!list.length) {
         console.error(
-            'Invalid coordinate at index ' +
-            i +
-            ':',
-            l[i]
+            '[Farm] No coordinates available.'
         );
 
         localStorage.setItem(
@@ -282,42 +381,160 @@
         return;
     }
 
-    // ------------------------------------------------------------
-    // FIND FORM
-    // ------------------------------------------------------------
 
-    var f = d.forms[0];
+    // ============================================================
+    // CURRENT INDEX
+    // ============================================================
+
+    var index =
+        parseInt(
+            localStorage.getItem(
+                'farmIndex'
+            ) || '0',
+            10
+        );
+
 
     if (
-        !f ||
-        !f.x ||
-        !f.y ||
-        !f.spy ||
-        !f.light
+        !Number.isFinite(index) ||
+        index < 0
     ) {
+        index = 0;
+
+        localStorage.setItem(
+            'farmIndex',
+            '0'
+        );
+    }
+
+
+    // ============================================================
+    // LIST FINISHED
+    // ============================================================
+
+    if (
+        index >= list.length
+    ) {
+
+        if (
+            RESTART_WHEN_FINISHED
+        ) {
+
+            index = 0;
+
+            localStorage.setItem(
+                'farmIndex',
+                '0'
+            );
+
+            console.log(
+                '[Farm] List finished. Restarting from coordinate 1.'
+            );
+
+        } else {
+
+            localStorage.setItem(
+                'farmRunning',
+                '0'
+            );
+
+            console.log(
+                '[Farm] Coordinate list finished.'
+            );
+
+            alert(
+                'Farm list finished. Automation stopped.'
+            );
+
+            return;
+        }
+    }
+
+
+    // ============================================================
+    // GET CURRENT TARGET
+    // ============================================================
+
+    var target =
+        list[index];
+
+    var coordinate =
+        target.split('|');
+
+
+    if (
+        coordinate.length !== 2
+    ) {
+
         console.error(
-            'Could not find the rally point troop form.'
+            '[Farm] Invalid coordinate:',
+            target
+        );
+
+        localStorage.setItem(
+            'farmRunning',
+            '0'
         );
 
         return;
     }
 
-    // ------------------------------------------------------------
-    // SET TARGET
-    // ------------------------------------------------------------
 
-    f.x.value = c[0];
-    f.y.value = c[1];
+    var x =
+        coordinate[0];
+
+    var y =
+        coordinate[1];
+
+
+    // ============================================================
+    // FIND RALLY POINT FORM
+    // ============================================================
+
+    var form =
+        d.forms[0];
+
+
+    if (!form) {
+        console.error(
+            '[Farm] Rally point form not found.'
+        );
+
+        return;
+    }
+
+
+    if (
+        !form.x ||
+        !form.y
+    ) {
+        console.error(
+            '[Farm] Coordinate fields not found.'
+        );
+
+        return;
+    }
+
+
+    // ============================================================
+    // SET COORDINATES
+    // ============================================================
+
+    form.x.value = x;
+    form.y.value = y;
+
 
     var targetInput =
-        d.querySelector('#place_target input');
+        d.querySelector(
+            '#place_target input'
+        );
+
 
     if (targetInput) {
 
         targetInput.value =
-            c[0] +
-            '|' +
-            c[1];
+            x + '|' + y;
+
 
         targetInput.dispatchEvent(
             new Event(
@@ -327,6 +544,7 @@
                 }
             )
         );
+
 
         targetInput.dispatchEvent(
             new Event(
@@ -338,52 +556,81 @@
         );
     }
 
-    // ------------------------------------------------------------
-    // TROOPS
-    // ------------------------------------------------------------
 
-    f.spy.value = 1;
-    f.light.value = 12;
+    // ============================================================
+    // SET TROOPS
+    // ============================================================
 
-    // ------------------------------------------------------------
-    // ATTACK BUTTON
-    // ------------------------------------------------------------
-
-    b =
-        d.getElementById('target_attack') ||
-        d.querySelector(
-            'input[name=attack]'
-        );
-
-    if (!b) {
-
+    if (!form.spy) {
         console.error(
-            'Attack button not found.'
+            '[Farm] Spy field not found.'
         );
 
         return;
     }
 
-    // Save next index before navigation.
+
+    if (!form.light) {
+        console.error(
+            '[Farm] Light cavalry field not found.'
+        );
+
+        return;
+    }
+
+
+    form.spy.value = 1;
+    form.light.value = 12;
+
+
+    // ============================================================
+    // FIND ATTACK BUTTON
+    // ============================================================
+
+    var attackButton =
+        d.getElementById(
+            'target_attack'
+        ) ||
+        d.querySelector(
+            'input[name=attack]'
+        );
+
+
+    if (!attackButton) {
+
+        console.error(
+            '[Farm] Attack button not found.'
+        );
+
+        return;
+    }
+
+
+    // ============================================================
+    // SAVE NEXT INDEX BEFORE NAVIGATION
+    // ============================================================
+
     localStorage.setItem(
         'farmIndex',
-        String(i + 1)
+        String(index + 1)
     );
+
 
     console.log(
-        'Farm ' +
-        (i + 1) +
+        '[Farm] Sending ' +
+        (index + 1) +
         '/' +
-        l.length +
-        ': ' +
-        c[0] +
+        list.length +
+        ' -> ' +
+        x +
         '|' +
-        c[1]
+        y
     );
 
-    // ------------------------------------------------------------
-    // SEND ATTACK
-    // ------------------------------------------------------------
+
+    // ============================================================
+    // CLICK ATTACK
+    // ============================================================
 
     setTimeout(
         function () {
@@ -391,10 +638,23 @@
             if (
                 localStorage.getItem(
                     'farmRunning'
-                ) !== '0'
+                ) === '0'
             ) {
-                b.click();
+
+                console.log(
+                    '[Farm] Attack cancelled because automation was stopped.'
+                );
+
+                return;
             }
+
+
+            console.log(
+                '[Farm] Opening confirmation...'
+            );
+
+
+            attackButton.click();
 
         },
         ATTACK_DELAY_MS
