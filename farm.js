@@ -56,7 +56,7 @@
     }
 
     if (f.spy) f.spy.value = 1;
-    if (f.light) f.light.value = 12;
+    if (f.light) f.light.value = 0;
 
     b =
         d.getElementById('target_attack') ||
